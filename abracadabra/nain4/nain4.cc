@@ -112,6 +112,54 @@ void use_our_optical_physics(G4RunManager* run_manager, G4int verbosity) {
     run_manager  -> SetUserInitialization(physics_list);
 } // run_manager owns physics_list
 
+// --------------------------------------------------------------------------------
+// definition of Messenger
+Command Messenger::add( const G4String & name
+                      , const G4AnyType& var
+                      , const G4String & doc // = ""
+                      ){
+  auto cmd = Command{messenger.DeclareProperty(name, var, doc), name};
+  commands.emplace(name, cmd);
+  return cmd;
+}
+
+
+Command::Command(G4GenericMessenger::Command& cmd, const G4String cname) :
+command(cmd), name(cname) {
+  command.SetParameterName(cname, false);
+  auto_unit();
+}
+
+template<typename T>
+Command& Command::one_of(const std::initializer_list<T> values){
+  G4String condition = "";
+  for (auto v : values){
+    condition += compare("==", v) + "||";
+  }
+  // TODO: Ugly. And unsafe for empty vals
+  condition.pop_back();
+  condition.pop_back();
+
+  command.SetRange(condition);
+  return *this;
+}
+
+
+#define length_keywords {"distance", "radius", "diameter", "height", "side", "length", "wavelength", "thickness"}
+#define energy_keywords {"energy"}
+#define   time_keywords {"time"}
+
+void Command::auto_unit(){
+  for (auto kw : length_keywords){ if (name.contains(kw)) { unit("Length"); return; } }
+  for (auto kw : energy_keywords){ if (name.contains(kw)) { unit("Energy"); return; } }
+  for (auto kw :   time_keywords){ if (name.contains(kw)) { unit("Time"  ); return; } }
+}
+
+#undef length_keywords
+#undef energy_keywords
+#undef   time_keywords
+
+
 } // namespace nain4
 
 geometry_iterator begin(G4VPhysicalVolume& vol) { return geometry_iterator{&vol}; }
@@ -123,3 +171,7 @@ geometry_iterator begin(G4LogicalVolume& vol) { return geometry_iterator{&vol}; 
 geometry_iterator   end(G4LogicalVolume&    ) { return geometry_iterator{    }; }
 geometry_iterator begin(G4LogicalVolume* vol) { return begin(*vol); }
 geometry_iterator   end(G4LogicalVolume* vol) { return   end(*vol); }
+
+
+
+///////////////////////////////////////////////

@@ -301,4 +301,74 @@ geometry_iterator   end(G4LogicalVolume*);
 
 
 
+////////////////////////////////////////////////////////////
+
+#include <G4GenericMessenger.hh>
+#include <G4String.hh>
+
+namespace nain4  {
+
+class Command;
+
+class Messenger{
+  typedef std::map<G4String, Command> cmd_map;
+
+public:
+  Messenger(void* obj, const G4String& dir, const G4String& doc="") :
+  messenger{obj, dir, doc}, commands{} { }
+
+  Command add(const G4String&, const G4AnyType&, const G4String& doc="");
+
+private:
+  G4GenericMessenger messenger;
+  cmd_map            commands;
+};
+
+
+
+class Command{
+
+public:
+  Command(G4GenericMessenger::Command&, const G4String);
+
+  #define CMD Command&
+  CMD unit   (const G4String& unit){ command.SetUnitCategory (unit)       ; return *this; }
+  CMD gt     (const double  & edge){ command.SetRange(compare(">" , edge)); return *this; }
+  CMD gteq   (const double  & edge){ command.SetRange(compare(">=", edge)); return *this; }
+  CMD lt     (const double  & edge){ command.SetRange(compare("<" , edge)); return *this; }
+  CMD lteq   (const double  & edge){ command.SetRange(compare("<=", edge)); return *this; }
+  CMD range  (const double  & low
+             ,const double  & high){ command.SetRange(compare(">=",  low) + "&&" +
+                                                      compare("<" , high)); return *this; }
+  CMD exclude(const double  & low
+             ,const double  & high){ command.SetRange(compare("<" ,  low) + "||" +
+                                                      compare(">=", high)); return *this; }
+
+  CMD          positive(){ return gteq(0); }
+  CMD strictly_positive(){ return gt  (0); }
+  CMD          negative(){ return lteq(0); }
+  CMD strictly_negative(){ return lt  (0); }
+
+  template<typename T>
+  CMD one_of(const std::initializer_list<T>);
+
+  template<typename T>
+  CMD one_of(const std::vector<T> values){return one_of(values.data());}
+
+  #undef CMD
+
+private:
+  G4GenericMessenger::Command& command;
+  G4String                     name;
+
+  inline G4String compare(const G4String& symbol, double val)
+  { return "(" + name + symbol + std::to_string(val) + ")"; }
+
+  void auto_unit();
+
+};
+
+} // namespace nain4
+
+
 #endif

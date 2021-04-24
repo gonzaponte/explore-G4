@@ -371,3 +371,280 @@ TEST_CASE("nain geometry iterator", "[nain][geometry][iterator]") {
   CHECK(found == expected);
 
 }
+
+#include <G4UImanager.hh>
+
+TEST_CASE("nain basic messenger", "[nain][messenger]") {
+  GIVEN ("the simplest, unitless messenger") {
+    class Dummy{
+    public:
+      int         foo;
+      double      bar;
+      std::string baz;
+      bool        qux;
+      std::unique_ptr<nain4::Messenger> msg;
+
+      Dummy() : foo(0), bar(0), baz(""), qux(false), msg(nullptr) {
+        msg = std::unique_ptr<nain4::Messenger>{new nain4::Messenger{this, "/dummy/", "msg doc"}};
+        msg->add("foo", foo, "foo doc");
+        msg->add("bar", bar, "bar doc");
+        msg->add("baz", baz, "baz doc");
+        msg->add("qux", qux, "qux doc");
+      }
+
+    };
+  auto dummy = Dummy{};
+
+  G4UImanager* UI = G4UImanager::GetUIpointer();
+  UI->ApplyCommand("/dummy/foo 666");
+  UI->ApplyCommand("/dummy/bar 3.1416");
+  UI->ApplyCommand("/dummy/baz spaghetti");
+  UI->ApplyCommand("/dummy/qux true");
+
+  CHECK(dummy.foo ==           666 );
+  CHECK(dummy.bar == Approx(3.1416));
+  CHECK(dummy.baz ==    "spaghetti");
+  CHECK(dummy.qux                  );
+  }
+
+
+
+  GIVEN ("a messenger with units") {
+    class Dummy{
+    public:
+      double foo;
+      double bar;
+      double baz;
+      std::unique_ptr<nain4::Messenger> msg;
+
+      Dummy() : foo(0), bar(0), baz(0), msg(nullptr) {
+        msg = std::unique_ptr<nain4::Messenger>{new nain4::Messenger{this, "/dummy/", "msg doc"}};
+        msg->add("foo", foo, "foo doc").unit("Length");
+        msg->add("bar", bar, "bar doc").unit("Energy");
+        msg->add("baz", baz, "baz doc").unit("Time"  );
+      }
+
+    };
+  auto dummy = Dummy{};
+
+  G4UImanager* UI = G4UImanager::GetUIpointer();
+  UI->ApplyCommand("/dummy/foo 1.5708  cm");
+  UI->ApplyCommand("/dummy/bar 3.1416 TeV");
+  UI->ApplyCommand("/dummy/baz 6.2832  ps");
+
+  CHECK(dummy.foo == Approx(1.5708 *  cm));
+  CHECK(dummy.bar == Approx(3.1416 * TeV));
+  CHECK(dummy.baz == Approx(6.2832 *  ps));
+  }
+
+
+  GIVEN ("a messenger with auto units") {
+    class Dummy{
+    public:
+      double foo;
+      double bar;
+      double baz;
+      double qux;
+      double quux;
+      double corge;
+      double grault;
+      double garply;
+      double waldo;
+
+      std::unique_ptr<nain4::Messenger> msg;
+
+      Dummy() : msg(nullptr) {
+        msg = std::unique_ptr<nain4::Messenger>{new nain4::Messenger{this, "/dummy/", "msg doc"}};
+        msg->add("radius"                  ,    foo);
+        msg->add("bar_diameter"            ,    bar);
+        msg->add("the_length_of_baz"       ,    baz);
+        msg->add("qux_height"              ,    qux);
+        msg->add("the_sides_of_the_objects",   quux);
+        msg->add("some_wavelengths"        ,  corge);
+        msg->add("thickness_of_a_volume"   , grault);
+
+        msg->add("garply_energy"           , garply);
+
+        msg->add("time_waldo"              ,  waldo);
+
+      }
+
+    };
+  auto dummy = Dummy{};
+
+  G4UImanager* UI = G4UImanager::GetUIpointer();
+  UI->ApplyCommand("/dummy/radius                   3.1416 cm");
+  UI->ApplyCommand("/dummy/bar_diameter             3.1416 cm");
+  UI->ApplyCommand("/dummy/the_length_of_baz        3.1416 cm");
+  UI->ApplyCommand("/dummy/qux_height               3.1416 cm");
+  UI->ApplyCommand("/dummy/the_sides_of_the_objects 3.1416 cm");
+  UI->ApplyCommand("/dummy/some_wavelengths         3.1416 cm");
+  UI->ApplyCommand("/dummy/thickness_of_a_volume    3.1416 cm");
+
+  UI->ApplyCommand("/dummy/garply_energy 6.2832 GeV");
+
+  UI->ApplyCommand("/dummy/time_waldo 1.5708 ps");
+
+  CHECK(dummy.foo    == Approx(3.1416 * cm));
+  CHECK(dummy.bar    == Approx(3.1416 * cm));
+  CHECK(dummy.baz    == Approx(3.1416 * cm));
+  CHECK(dummy.qux    == Approx(3.1416 * cm));
+  CHECK(dummy.quux   == Approx(3.1416 * cm));
+  CHECK(dummy.corge  == Approx(3.1416 * cm));
+  CHECK(dummy.grault == Approx(3.1416 * cm));
+  CHECK(dummy.garply == Approx(6.2832 * GeV));
+  CHECK(dummy.waldo  == Approx(1.5708 *  ps));
+  }
+
+
+  GIVEN ("a messenger with restricted range without units and correct values ") {
+    class Dummy{
+    public:
+      double foo;
+      double bar;
+      double baz;
+      double qux;
+      double quux;
+      double corge;
+      double grault;
+      double garply;
+      double waldo;
+      double fred;
+      double plugh;
+
+      std::unique_ptr<nain4::Messenger> msg;
+
+      Dummy() : msg(nullptr) {
+        msg = std::unique_ptr<nain4::Messenger>{new nain4::Messenger{this, "/dummy/", "msg doc"}};
+        msg->add(   "foo",    foo,    "foo doc").gt      (1);
+        msg->add(   "bar",    bar,    "bar doc").gteq    (2);
+        msg->add(   "baz",    baz,    "baz doc").lt      (3);
+        msg->add(   "qux",    qux,    "qux doc").lteq    (4);
+        msg->add(  "quux",   quux,   "quux doc").range   (5,  7);
+        msg->add( "corge",  corge,  "corge doc").exclude (8, 10);
+        msg->add("grault", grault, "grault doc").positive();
+        msg->add("garply", garply, "garply doc").strictly_positive();
+        msg->add( "waldo",  waldo,  "waldo doc").negative();
+        msg->add(  "fred",   fred,   "fred doc").strictly_negative();
+        // undefined reference to `Command& Command::one_of<double>(std::initializer_list<double>)'
+        // WTF
+        // msg->add( "plugh",  plugh,  "plugh doc").unit("Time"  ).one_of  ({1*s, 5*s, 9*s});
+      }
+
+    };
+  auto dummy = Dummy{};
+
+  G4UImanager* UI = G4UImanager::GetUIpointer();
+  UI->ApplyCommand("/dummy/foo     2");
+  UI->ApplyCommand("/dummy/bar     2");
+  UI->ApplyCommand("/dummy/baz     2");
+  UI->ApplyCommand("/dummy/qux     4");
+  UI->ApplyCommand("/dummy/quux    6");
+  UI->ApplyCommand("/dummy/corge   5");
+  UI->ApplyCommand("/dummy/grault  0");
+  UI->ApplyCommand("/dummy/garply  1");
+  UI->ApplyCommand("/dummy/waldo   0");
+  UI->ApplyCommand("/dummy/fred   -1");
+  // UI->ApplyCommand("/dummy/plugh   9   s");
+
+  CHECK(dummy.foo    ==  2);
+  CHECK(dummy.bar    ==  2);
+  CHECK(dummy.baz    ==  2);
+  CHECK(dummy.qux    ==  4);
+  CHECK(dummy.quux   ==  6);
+  CHECK(dummy.corge  ==  5);
+  CHECK(dummy.grault ==  0);
+  CHECK(dummy.garply ==  1);
+  CHECK(dummy.waldo  ==  0);
+  CHECK(dummy.fred   == -1);
+  // CHECK(dummy.plugh  == Approx( 9 *   s));
+  }
+
+  GIVEN ("a messenger with restricted range with units and correct values") {
+    class Dummy{
+    public:
+      double foo;
+      double bar;
+      double baz;
+      double qux;
+      double quux;
+      double corge;
+      double grault;
+      double garply;
+      double waldo;
+      double fred;
+      int    plugh;
+
+      std::unique_ptr<nain4::Messenger> msg;
+
+      Dummy() : msg(nullptr) {
+        msg = std::unique_ptr<nain4::Messenger>{new nain4::Messenger{this, "/dummy/", "msg doc"}};
+        msg->add(   "foo",    foo,    "foo doc").unit("Length").gt      (1 * cm);
+        msg->add(   "bar",    bar,    "bar doc").unit("Length").gteq    (2 * cm);
+        msg->add(   "baz",    baz,    "baz doc").unit("Energy").lt      (3 * keV);
+        msg->add(   "qux",    qux,    "qux doc").unit("Energy").lteq    (4 * keV);
+        msg->add(  "quux",   quux,   "quux doc").unit("Time"  ).range   (1 * ns, 1 * us);
+        msg->add( "corge",  corge,  "corge doc").unit("Time"  ).exclude (1 * ns, 1 * us);
+        msg->add("grault", grault, "grault doc").unit("Length").positive();
+        msg->add("garply", garply, "garply doc").unit("Length").strictly_positive();
+        msg->add( "waldo",  waldo,  "waldo doc").unit("Energy").negative();
+        msg->add(  "fred",   fred,   "fred doc").unit("Energy").strictly_negative();
+        // undefined reference to `Command& Command::one_of<double>(std::initializer_list<double>)'
+        // WTF
+        // msg->add( "plugh",  plugh,  "plugh doc").unit("Time"  ).one_of  ({1*s, 5*s, 9*s});
+      }
+
+    };
+  auto dummy = Dummy{};
+
+  G4UImanager* UI = G4UImanager::GetUIpointer();
+  UI->ApplyCommand("/dummy/foo     1   m");
+  UI->ApplyCommand("/dummy/bar     2  cm");
+  UI->ApplyCommand("/dummy/baz     1  eV");
+  UI->ApplyCommand("/dummy/qux     4 keV");
+  UI->ApplyCommand("/dummy/quux    5  ns");
+  UI->ApplyCommand("/dummy/corge   1  ms");
+  UI->ApplyCommand("/dummy/grault  0  nm");
+  UI->ApplyCommand("/dummy/garply  1  nm");
+  UI->ApplyCommand("/dummy/waldo   0  eV");
+  UI->ApplyCommand("/dummy/fred   -1 keV");
+  // UI->ApplyCommand("/dummy/plugh   9   s");
+
+  CHECK(dummy.foo    == Approx( 1 *   m));
+  CHECK(dummy.bar    == Approx( 2 *  cm));
+  CHECK(dummy.baz    == Approx( 1 *  eV));
+  CHECK(dummy.qux    == Approx( 4 * keV));
+  CHECK(dummy.quux   == Approx( 5 *  ns));
+  CHECK(dummy.corge  == Approx( 1 *  ms));
+  CHECK(dummy.grault == Approx( 0 *  nm));
+  CHECK(dummy.garply == Approx( 1 *  nm));
+  CHECK(dummy.waldo  == Approx( 0 *  eV));
+  CHECK(dummy.fred   == Approx(-1 * keV));
+  // CHECK(dummy.plugh  == Approx( 9 *   s));
+  }
+
+
+
+}
+
+/*
+TEST_CASE("nain messenger", "[nain][messenger]") {
+  GIVEN ("a dummy class that uses a messenger") {
+    class Dummy{
+    public:
+      double fFoo;
+      Messenger fmsg;
+
+      Dummy(){
+        fmsg = Messenger{this, "/path", "msgdoc"};
+        fmsg.add("a_command", fFoo, "cmddoc");
+      }
+    };
+
+    THEN("this class should throw an exception when initialized"){
+      CHECK_THROWS(Dummy());
+    }
+  }
+}
+
+*/
